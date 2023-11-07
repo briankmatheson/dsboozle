@@ -1,3 +1,8 @@
+package main
+
+import (
+	"gorm.io/gorm"
+)
 
 type FileType struct {
 	encoding string
