@@ -331,6 +331,12 @@ func main() {
 		fmt.Println("Kaboom!5  ", err)
 	}
 
+	contract := Contract{PartyIDs: [ userid ], MasterFileID: uploadfileid}
+	contractid, err := CreateContract(db, &contract)
+	if err != nil {
+		fmt.Println("Kaboom!5.1  ", err)
+	}
+
 	track := Track{
 		Name:         "New Track",
 		Genre:        "Pop",
@@ -339,6 +345,7 @@ func main() {
 		ArtistID:     artistid,
 		ComposerID:   artistid,
 		TrackFileIDs: pq.Int64Array{int64(uploadfileid)},
+		ContractID:   contractid,
 	}
 
 	trackid, err := CreateTrack(db, &track)
