@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -41,9 +42,9 @@ type TrackFile struct {
 	Checksum   string
 }
 
-func CreateTrackFile(db *gorm.DB, trackfile *TrackFile) error {
+func CreateTrackFile(db *gorm.DB, trackfile *TrackFile) (uint, error) {
 	result := db.Create(&trackfile)
-	return result.Error
+	return trackfile.ID, result.Error
 }
 func ReadTrackFile(db *gorm.DB, id uint) (TrackFile, error) {
 	var trackfile TrackFile
@@ -64,9 +65,9 @@ type Bank struct {
 	Name string
 }
 
-func CreateBank(db *gorm.DB, bank *Bank) error {
+func CreateBank(db *gorm.DB, bank *Bank) (uint, error) {
 	result := db.Create(&bank)
-	return result.Error
+	return bank.ID, result.Error
 }
 func ReadBank(db *gorm.DB, id uint) (Bank, error) {
 	var bank Bank
@@ -89,9 +90,13 @@ type User struct {
 	Buy   Bank `gorm:"foreignKey:BuyID"`
 }
 
-func CreateUser(db *gorm.DB, user *User) error {
+func (User) TableName() string {
+	return "userlist"
+}
+
+func CreateUser(db *gorm.DB, user *User) (uint, error) {
 	result := db.Create(&user)
-	return result.Error
+	return user.ID, result.Error
 }
 func ReadUser(db *gorm.DB, id uint) (User, error) {
 	var user User
@@ -115,9 +120,9 @@ type Artist struct {
 	Sell   Bank `gorm:"foreignKey:SellID"`
 }
 
-func CreateArtist(db *gorm.DB, artist *Artist) error {
+func CreateArtist(db *gorm.DB, artist *Artist) (uint, error) {
 	result := db.Create(&artist)
-	return result.Error
+	return artist.ID, result.Error
 }
 func ReadArtist(db *gorm.DB, id uint) (Artist, error) {
 	var artist Artist
@@ -135,14 +140,14 @@ func DeleteArtist(db *gorm.DB, id uint) error {
 
 type Contract struct {
 	gorm.Model
-	Parties      []User `gorm:"many2many:contract_parties;"`
+	PartyIDs     pq.Int64Array `gorm:"many2many:contract_parties;"`
 	MasterFileID uint
 	MasterFile   TrackFile `gorm:"foreignKey:MasterFileID"`
 }
 
-func CreateContract(db *gorm.DB, contract *Contract) error {
+func CreateContract(db *gorm.DB, contract *Contract) (uint, error) {
 	result := db.Create(&contract)
-	return result.Error
+	return contract.ID, result.Error
 }
 func ReadContract(db *gorm.DB, id uint) (Contract, error) {
 	var contract Contract
@@ -163,9 +168,9 @@ type Upload struct {
 	PercentComplete uint
 }
 
-func CreateUpload(db *gorm.DB, upload *Upload) error {
+func CreateUpload(db *gorm.DB, upload *Upload) (uint, error) {
 	result := db.Create(&upload)
-	return result.Error
+	return upload.ID, result.Error
 }
 func ReadUpload(db *gorm.DB, id uint) (Upload, error) {
 	var upload Upload
@@ -189,9 +194,9 @@ type Distribution struct {
 	Status    Upload `gorm:"foreignKey:UploadID"`
 }
 
-func CreateDistribution(db *gorm.DB, distribution *Distribution) error {
+func CreateDistribution(db *gorm.DB, distribution *Distribution) (uint, error) {
 	result := db.Create(&distribution)
-	return result.Error
+	return distribution.ID, result.Error
 }
 func ReadDistribution(db *gorm.DB, id uint) (Distribution, error) {
 	var distribution Distribution
@@ -213,8 +218,9 @@ type Track struct {
 	UploadFileID uint
 	UploadFile   TrackFile `gorm:"foreignKey:UploadFileID"`
 	MasterFileID uint
-	MasterFile   TrackFile   `gorm:"foreignKey:MasterFileID"`
-	TrackFiles   []TrackFile `gorm:"many2many:track_trackfiles;"`
+	MasterFile   TrackFile     `gorm:"foreignKey:MasterFileID"`
+	TrackFileIDs pq.Int64Array `gorm:"type:integer[]"`
+	TrackFiles   []TrackFile   `gorm:"many2many:track_trackfiles;foreignKey:TrackFileIDs"`
 	ArtistID     uint
 	Artist       Artist `gorm:"foreignKey:ArtistID"`
 	ComposerID   uint
@@ -227,9 +233,13 @@ type Track struct {
 	Comment      string
 }
 
-func CreateTrack(db *gorm.DB, track *Track) error {
+func (Track) TableName() string {
+	return "tracklist"
+}
+
+func CreateTrack(db *gorm.DB, track *Track) (uint, error) {
 	result := db.Create(&track)
-	return result.Error
+	return track.ID, result.Error
 }
 func ReadTrack(db *gorm.DB, id uint) (Track, error) {
 	var track Track
@@ -249,7 +259,7 @@ type Collection struct {
 	gorm.Model
 	Name    string
 	Type    string
-	Tracks  []Track `gorm:"many2many:collection_tracks;"`
+	Tracks  pq.Int64Array `gorm:"many2many:collection_tracks;"`
 	Artist  string
 	Genre   string
 	Year    string
@@ -293,23 +303,51 @@ func main() {
 
 	// this is the right pattern.  todo return id from other creates
 	filetype := FileType{Encoding: "flac", Bitrate: "variable", Lossless: true}
-	id, err := CreateFileType(db, &filetype)
+	filetypeid, err := CreateFileType(db, &filetype)
+	if err != nil {
+		fmt.Println("Kaboom!1  ", err)
+	}
 
-	uploadfile := TrackFile{Url: "https://localhost", FileTypeID: id, Size: 10, Checksum: "0xdeadbeef"}
-	CreateTrackFile(db, &uploadfile)
+	uploadfile := TrackFile{Url: "https://localhost", FileTypeID: filetypeid, Size: 10, Checksum: "0xdeadbeef"}
+	uploadfileid, err := CreateTrackFile(db, &uploadfile)
+	if err != nil {
+		fmt.Println("Kaboom!2  ", err)
+	}
 
-	CreateBank(db, &Bank{Name: "foo"})
+	bankid, err := CreateBank(db, &Bank{Name: "foo"})
+	if err != nil {
+		fmt.Println("Kaboom!3  ", err)
+	}
 
-	user := User{Email: "bmath@bmath.nyc", BuyID: 0}
-	CreateUser(db, &user)
-	artist := Artist{UserID: 0, SellID: 0}
-	CreateArtist(db, &artist)
+	user := User{Email: "bmath@bmath.nyc", BuyID: bankid}
+	userid, err := CreateUser(db, &user)
+	if err != nil {
+		fmt.Println("Kaboom!4  ", err)
+	}
 
-	track := Track{Name: "New Track", Genre: "Pop"}
-	CreateTrack(db, &track)
+	artist := Artist{UserID: userid, SellID: bankid}
+	artistid, err := CreateArtist(db, &artist)
+	if err != nil {
+		fmt.Println("Kaboom!5  ", err)
+	}
+
+	track := Track{
+		Name:         "New Track",
+		Genre:        "Pop",
+		UploadFileID: uploadfileid,
+		MasterFileID: uploadfileid,
+		ArtistID:     artistid,
+		ComposerID:   artistid,
+		TrackFileIDs: pq.Int64Array{int64(uploadfileid)},
+	}
+
+	trackid, err := CreateTrack(db, &track)
+	if err != nil {
+		fmt.Println("Kaboom!6  ", err)
+	}
 
 	// Read
-	readTrack, err := ReadTrack(db, track.ID)
+	readTrack, err := ReadTrack(db, trackid)
 	if err != nil {
 		fmt.Println("Error:", err)
 	} else {
