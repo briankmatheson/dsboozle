@@ -1,45 +1,61 @@
 package main
 
 import (
+	"fmt"
+
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type FileType struct {
-	encoding string
-	bitrate  string
-	lossless bool
+	gorm.Model
+	Encoding string
+	Bitrate  string
+	Lossless bool
 }
 
 type TrackFile struct {
-	url      string
-	filetype FileType
-	size     int
-	checksum string
+	gorm.Model
+	Url        string
+	FileTypeID int
+	FileType   FileType `gorm:"foreignKey:FileTypeID"`
+	Size       int
+	Checksum   string
+}
+
+type Bank struct {
+	gorm.Model
+	Name string
 }
 
 type User struct {
 	gorm.Model
-	email string
-	Buy   bank
+	Email string
+	BuyID int
+	Buy   Bank `gorm:"foreignKey:BuyID"`
 }
 
 type Artist struct {
 	gorm.Model
-	User
-	Sell bank
+	UserID int
+	User   User `gorm:"foreignKey:UserID"`
+	SellID int
+	Sell   Bank `"gorm:foreignKey:SellID"`
 }
 
 type Contract struct {
 	gorm.Model
-	Parties    []User
-	MasterFile TrackFile
+	Parties      []User `gorm:"many2many:contract_parties;"`
+	MasterFileID int
+	MasterFile   TrackFile `"gorm:foreignKey:MasterFileIDf"`
 }
 
 type Distribution struct {
 	gorm.Model
 	Name      string
 	UploadURL string
-	Status    Upload
+	UploadID  int
+	Status    Upload `"gorm:foreignKey:UploadID"`
 }
 
 type Upload struct {
@@ -48,24 +64,29 @@ type Upload struct {
 
 type Track struct {
 	gorm.Model
-	Name       string
-	UploadFile TrackFile
-	MasterFile TrackFile
-	TrackFiles []TrackFile
-	Artist     Artist
-	Composer   Artist
-	Contract   Contract
-	Genre      string
-	Year       int
-	Lyrics     string
-	Comment    string
+	Name         string
+	UploadFileID int
+	UploadFile   TrackFile `"gorm:"foreignKey:UploadFileID"`
+	MasterFileID int
+	MasterFile   TrackFile   `gorm:"foreignKey:MasterFileID"`
+	TrackFiles   []TrackFile `gorm:"many2many:track_trackfiles;"`
+	ArtistID     int
+	Artist       Artist `gorm:"foreignKey:ArtistID"`
+	ComposerID   int
+	Composer     Artist `gorm:"foreignKey:ComposerID"`
+	ContractID   int
+	Contract     Contract `gorm:"foreignKey:ContractID"`
+	Genre        string
+	Year         int
+	Lyrics       string
+	Comment      string
 }
 
 type Collection struct {
 	gorm.Model
 	Name    string
 	Type    string
-	Tracks  []Tracks
+	Tracks  []Track `gorm:"many2many:collection_tracks;"`
 	Artist  string
 	Genre   string
 	Year    string
@@ -74,7 +95,61 @@ type Collection struct {
 
 type Entitlement struct {
 	gorm.Model
-	Track    Track
+	TrackID  int
+	Track    Track `gorm:"foreignkey=TrackID"`
 	Consumer User
-	Owner    User
+	Owner    Artist
+}
+
+func CreateTrack(db *gorm.DB, track *Track) error {
+	result := db.Create(&track)
+	return result.Error
+}
+
+func ReadTrack(db *gorm.DB, id uint) (Track, error) {
+	var track Track
+	result := db.First(&track, id)
+	return track, result.Error
+}
+
+func UpdateTrack(db *gorm.DB, track *Track) error {
+	result := db.Save(&track)
+	return result.Error
+}
+
+func DeleteTrack(db *gorm.DB, id uint) error {
+	result := db.Delete(&Track{}, id)
+	return result.Error
+}
+
+func main() {
+	db, err := gorm.Open(
+		postgres.New(postgres.Config{DSN: "host=192.168.1.31 user=dsboozle password=gr8passwd dbname=dsboozle port=5432 sslmode=disable TimeZone=America/New_York"}),
+		&gorm.Config{})
+
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	// Migrate the schema
+	db.AutoMigrate(&Track{})
+
+	// Create
+	track := Track{Name: "New Track", Genre: "Pop"}
+	CreateTrack(db, &track)
+
+	// Read
+	readTrack, err := ReadTrack(db, track.ID)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Println("Track:", readTrack)
+	}
+
+	// Update
+	track.Genre = "Rock"
+	UpdateTrack(db, &track)
+
+	// Delete
+	DeleteTrack(db, track.ID)
 }
