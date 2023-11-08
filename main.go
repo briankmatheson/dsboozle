@@ -354,7 +354,7 @@ func main() {
 	// Read
 	readTrack, err := ReadTrack(db, trackid)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("Error fetching track:", err)
 	} else {
 		fmt.Println("Track:", readTrack)
 	}
@@ -364,5 +364,5 @@ func main() {
 	UpdateTrack(db, &track)
 
 	// Delete
-	DeleteTrack(db, track.ID)
+	//DeleteTrack(db, track.ID)
 }
