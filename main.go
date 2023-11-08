@@ -290,6 +290,17 @@ func main() {
 		&Entitlement{})
 
 	// Create
+
+	filetype := FileType{Encoding: "flac", Bitrate: "variable", Lossless: true}
+	CreateFileType(db, &filetype)
+
+	uploadfile := TrackFile{Url: "https://localhost", FileTypeID: 0, size: 1, checksum: "0xdeadbeef"}
+	CreateTrackFile(db, &uploadfile)
+
+	CreateBank(db, Bank{Name: "foo"})
+
+	user := User{Email: "bmath@bmath.ny"}
+
 	track := Track{Name: "New Track", Genre: "Pop"}
 	CreateTrack(db, &track)
 
