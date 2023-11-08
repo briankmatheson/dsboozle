@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -140,7 +139,7 @@ func DeleteArtist(db *gorm.DB, id uint) error {
 
 type Contract struct {
 	gorm.Model
-	PartyIDs     pq.Int64Array `gorm:"many2many:contract_parties;"`
+	Parties      []User `gorm:"many2many:contract_parties"`
 	MasterFileID uint
 	MasterFile   TrackFile `gorm:"foreignKey:MasterFileID"`
 }
@@ -218,9 +217,8 @@ type Track struct {
 	UploadFileID uint
 	UploadFile   TrackFile `gorm:"foreignKey:UploadFileID"`
 	MasterFileID uint
-	MasterFile   TrackFile     `gorm:"foreignKey:MasterFileID"`
-	TrackFileIDs pq.Int64Array `gorm:"type:integer[]"`
-	TrackFiles   []TrackFile   `gorm:"many2many:track_trackfiles;foreignKey:TrackFileIDs"`
+	MasterFile   TrackFile   `gorm:"foreignKey:MasterFileID"`
+	TrackFiles   []TrackFile `gorm:"many2many:track_trackfiles"`
 	ArtistID     uint
 	Artist       Artist `gorm:"foreignKey:ArtistID"`
 	ComposerID   uint
@@ -257,23 +255,24 @@ func DeleteTrack(db *gorm.DB, id uint) error {
 
 type Collection struct {
 	gorm.Model
-	Name    string
-	Type    string
-	Tracks  pq.Int64Array `gorm:"many2many:collection_tracks;"`
-	Artist  string
-	Genre   string
-	Year    string
-	Comment string
+	Name     string
+	Type     string
+	Tracks   []Track `gorm:"many2many:collection_tracks"`
+	ArtistID uint
+	Artist   Artist `gorm:"foreignKey:ArtistID"`
+	Genre    string
+	Year     string
+	Comment  string
 }
 
 type Entitlement struct {
 	gorm.Model
 	CollectionID uint
-	Collection   Collection `gorm:"foreignKey=CollectionID"`
+	Collection   Collection `gorm:"foreignKey:CollectionID"`
 	ConsumerID   uint
-	Consumer     User `gorm:"foreignKey=ConsumerID"`
+	Consumer     User `gorm:"foreignKey:ConsumerID"`
 	OwnerID      uint
-	Owner        Artist `gorm:"foreignKey=OwnerID"`
+	Owner        Artist `gorm:"foreignKey:OwnerID"`
 }
 
 func main() {
@@ -331,7 +330,7 @@ func main() {
 		fmt.Println("Kaboom!5  ", err)
 	}
 
-	contract := Contract{PartyIDs: [ userid ], MasterFileID: uploadfileid}
+	contract := Contract{MasterFileID: uploadfileid}
 	contractid, err := CreateContract(db, &contract)
 	if err != nil {
 		fmt.Println("Kaboom!5.1  ", err)
@@ -344,7 +343,6 @@ func main() {
 		MasterFileID: uploadfileid,
 		ArtistID:     artistid,
 		ComposerID:   artistid,
-		TrackFileIDs: pq.Int64Array{int64(uploadfileid)},
 		ContractID:   contractid,
 	}
 
