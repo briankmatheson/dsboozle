@@ -14,9 +14,9 @@ type FileType struct {
 	Lossless bool
 }
 
-func CreateFileType(db *gorm.DB, filetype *FileType) error {
+func CreateFileType(db *gorm.DB, filetype *FileType) (uint, error) {
 	result := db.Create(&filetype)
-	return result.Error
+	return filetype.ID, result.Error
 }
 func ReadFileType(db *gorm.DB, id uint) (FileType, error) {
 	var filetype FileType
@@ -35,9 +35,9 @@ func DeleteFileType(db *gorm.DB, id uint) error {
 type TrackFile struct {
 	gorm.Model
 	Url        string
-	FileTypeID int
+	FileTypeID uint
 	FileType   FileType `gorm:"foreignKey:FileTypeID"`
-	Size       int
+	Size       uint
 	Checksum   string
 }
 
@@ -85,7 +85,7 @@ func DeleteBank(db *gorm.DB, id uint) error {
 type User struct {
 	gorm.Model
 	Email string
-	BuyID int
+	BuyID uint
 	Buy   Bank `gorm:"foreignKey:BuyID"`
 }
 
@@ -109,9 +109,9 @@ func DeleteUser(db *gorm.DB, id uint) error {
 
 type Artist struct {
 	gorm.Model
-	UserID int
+	UserID uint
 	User   User `gorm:"foreignKey:UserID"`
-	SellID int
+	SellID uint
 	Sell   Bank `gorm:"foreignKey:SellID"`
 }
 
@@ -136,7 +136,7 @@ func DeleteArtist(db *gorm.DB, id uint) error {
 type Contract struct {
 	gorm.Model
 	Parties      []User `gorm:"many2many:contract_parties;"`
-	MasterFileID int
+	MasterFileID uint
 	MasterFile   TrackFile `gorm:"foreignKey:MasterFileID"`
 }
 
@@ -160,7 +160,7 @@ func DeleteContract(db *gorm.DB, id uint) error {
 
 type Upload struct {
 	gorm.Model
-	PercentComplete int
+	PercentComplete uint
 }
 
 func CreateUpload(db *gorm.DB, upload *Upload) error {
@@ -185,7 +185,7 @@ type Distribution struct {
 	gorm.Model
 	Name      string
 	UploadURL string
-	UploadID  int
+	UploadID  uint
 	Status    Upload `gorm:"foreignKey:UploadID"`
 }
 
@@ -210,19 +210,19 @@ func DeleteDistribution(db *gorm.DB, id uint) error {
 type Track struct {
 	gorm.Model
 	Name         string
-	UploadFileID int
+	UploadFileID uint
 	UploadFile   TrackFile `gorm:"foreignKey:UploadFileID"`
-	MasterFileID int
+	MasterFileID uint
 	MasterFile   TrackFile   `gorm:"foreignKey:MasterFileID"`
 	TrackFiles   []TrackFile `gorm:"many2many:track_trackfiles;"`
-	ArtistID     int
+	ArtistID     uint
 	Artist       Artist `gorm:"foreignKey:ArtistID"`
-	ComposerID   int
+	ComposerID   uint
 	Composer     Artist `gorm:"foreignKey:ComposerID"`
-	ContractID   int
+	ContractID   uint
 	Contract     Contract `gorm:"foreignKey:ContractID"`
 	Genre        string
-	Year         int
+	Year         uint
 	Lyrics       string
 	Comment      string
 }
@@ -258,11 +258,11 @@ type Collection struct {
 
 type Entitlement struct {
 	gorm.Model
-	CollectionID int
+	CollectionID uint
 	Collection   Collection `gorm:"foreignKey=CollectionID"`
-	ConsumerID   int
+	ConsumerID   uint
 	Consumer     User `gorm:"foreignKey=ConsumerID"`
-	OwnerID      int
+	OwnerID      uint
 	Owner        Artist `gorm:"foreignKey=OwnerID"`
 }
 
@@ -291,15 +291,19 @@ func main() {
 
 	// Create
 
+	// this is the right pattern.  todo return id from other creates
 	filetype := FileType{Encoding: "flac", Bitrate: "variable", Lossless: true}
-	CreateFileType(db, &filetype)
+	id, err := CreateFileType(db, &filetype)
 
-	uploadfile := TrackFile{Url: "https://localhost", FileTypeID: 0, size: 1, checksum: "0xdeadbeef"}
+	uploadfile := TrackFile{Url: "https://localhost", FileTypeID: id, Size: 10, Checksum: "0xdeadbeef"}
 	CreateTrackFile(db, &uploadfile)
 
-	CreateBank(db, Bank{Name: "foo"})
+	CreateBank(db, &Bank{Name: "foo"})
 
-	user := User{Email: "bmath@bmath.ny"}
+	user := User{Email: "bmath@bmath.nyc", BuyID: 0}
+	CreateUser(db, &user)
+	artist := Artist{UserID: 0, SellID: 0}
+	CreateArtist(db, &artist)
 
 	track := Track{Name: "New Track", Genre: "Pop"}
 	CreateTrack(db, &track)
