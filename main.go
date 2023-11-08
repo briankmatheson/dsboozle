@@ -112,7 +112,7 @@ type Artist struct {
 	UserID int
 	User   User `gorm:"foreignKey:UserID"`
 	SellID int
-	Sell   Bank `"gorm:foreignKey:SellID"`
+	Sell   Bank `gorm:"foreignKey:SellID"`
 }
 
 func CreateArtist(db *gorm.DB, artist *Artist) error {
@@ -137,7 +137,7 @@ type Contract struct {
 	gorm.Model
 	Parties      []User `gorm:"many2many:contract_parties;"`
 	MasterFileID int
-	MasterFile   TrackFile `"gorm:foreignKey:MasterFileID"`
+	MasterFile   TrackFile `gorm:"foreignKey:MasterFileID"`
 }
 
 func CreateContract(db *gorm.DB, contract *Contract) error {
@@ -158,33 +158,8 @@ func DeleteContract(db *gorm.DB, id uint) error {
 	return result.Error
 }
 
-type Distribution struct {
-	gorm.Model
-	Name      string
-	UploadURL string
-	UploadID  int
-	Status    Upload `"gorm:foreignKey:UploadID"`
-}
-
-func CreateDistribution(db *gorm.DB, distribution *Distribution) error {
-	result := db.Create(&distribution)
-	return result.Error
-}
-func ReadDistribution(db *gorm.DB, id uint) (Distribution, error) {
-	var distribution Distribution
-	result := db.First(&distribution, id)
-	return distribution, result.Error
-}
-func UpdateDistribution(db *gorm.DB, distribution *Distribution) error {
-	result := db.Save(&distribution)
-	return result.Error
-}
-func DeleteDistribution(db *gorm.DB, id uint) error {
-	result := db.Delete(&Distribution{}, id)
-	return result.Error
-}
-
 type Upload struct {
+	gorm.Model
 	PercentComplete int
 }
 
@@ -206,11 +181,37 @@ func DeleteUpload(db *gorm.DB, id uint) error {
 	return result.Error
 }
 
+type Distribution struct {
+	gorm.Model
+	Name      string
+	UploadURL string
+	UploadID  int
+	Status    Upload `gorm:"foreignKey:UploadID"`
+}
+
+func CreateDistribution(db *gorm.DB, distribution *Distribution) error {
+	result := db.Create(&distribution)
+	return result.Error
+}
+func ReadDistribution(db *gorm.DB, id uint) (Distribution, error) {
+	var distribution Distribution
+	result := db.First(&distribution, id)
+	return distribution, result.Error
+}
+func UpdateDistribution(db *gorm.DB, distribution *Distribution) error {
+	result := db.Save(&distribution)
+	return result.Error
+}
+func DeleteDistribution(db *gorm.DB, id uint) error {
+	result := db.Delete(&Distribution{}, id)
+	return result.Error
+}
+
 type Track struct {
 	gorm.Model
 	Name         string
 	UploadFileID int
-	UploadFile   TrackFile `"gorm:"foreignKey:UploadFileID"`
+	UploadFile   TrackFile `gorm:"foreignKey:UploadFileID"`
 	MasterFileID int
 	MasterFile   TrackFile   `gorm:"foreignKey:MasterFileID"`
 	TrackFiles   []TrackFile `gorm:"many2many:track_trackfiles;"`
@@ -259,8 +260,10 @@ type Entitlement struct {
 	gorm.Model
 	CollectionID int
 	Collection   Collection `gorm:"foreignKey=CollectionID"`
-	Consumer     User
-	Owner        Artist
+	ConsumerID   int
+	Consumer     User `gorm:"foreignKey=ConsumerID"`
+	OwnerID      int
+	Owner        Artist `gorm:"foreignKey=OwnerID"`
 }
 
 func main() {
@@ -273,7 +276,18 @@ func main() {
 	}
 
 	// Migrate the schema
-	db.AutoMigrate(&Track{})
+	db.AutoMigrate(
+		&FileType{},
+		&TrackFile{},
+		&Bank{},
+		&User{},
+		&Artist{},
+		&Contract{},
+		&Upload{},
+		&Distribution{},
+		&Track{},
+		&Collection{},
+		&Entitlement{})
 
 	// Create
 	track := Track{Name: "New Track", Genre: "Pop"}
